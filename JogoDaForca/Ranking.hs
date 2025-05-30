@@ -10,7 +10,7 @@ module Ranking (
   lerHistoricoPartidas,  -- ^ Lê o histórico de partidas do arquivo.
   lerRankingAcumulado,  -- ^ Lê o ranking acumulado do arquivo.
   salvarPontuacao,      -- ^ Salva a pontuação de um jogador nos arquivos.
-  exibirRankingMelhores, -- ^ Exibe o ranking dos melhores jogadores (acumulado).
+  exibirRankingGeral,   -- << ALTERADO: de exibirRankingMelhores para exibirRankingGeral
   exibirHistoricoPartidas -- ^ Exibe o histórico das partidas recentes.
 ) where
 
@@ -22,7 +22,7 @@ import Data.List (sortBy)
 import Data.Maybe (mapMaybe)
 import System.IO.Error (catchIOError)
 import Text.Read (readMaybe)
-import Control.Monad (when, unless)
+import Control.Monad (unless) -- Removido 'when' pois a lógica mudou
 import Control.Exception (evaluate)
 
 -- | Representa a pontuação de um jogador como uma tupla (Nome, Pontos, Resultado, Palavra).
@@ -45,56 +45,40 @@ garantirArquivoExiste _arquivo = do
 lerArquivoSeguro :: FilePath -> IO String
 lerArquivoSeguro arquivo = catchIOError strictReadFileHandler handler
   where
-    -- Ação para ler o arquivo estritamente
     strictReadFileHandler :: IO String
     strictReadFileHandler = do
         conteudo <- readFile arquivo
         _ <- evaluate (length conteudo)
         return conteudo
-
-    -- Manipulador de erro para qualquer erro de IO durante a leitura
     handler :: IOError -> IO String
-    handler _err = do
-        -- Se precisar depurar erros de leitura, descomente a linha abaixo:
-        -- putStrLn $ "Aviso: Não foi possível ler " ++ arquivo ++ " devido a: " ++ show _err
-        return ""
+    handler _err = return ""
 
--- | Acrescenta ao final de um arquivo usando appendFile (mais seguro e simples).
+-- | Acrescenta ao final de um arquivo usando appendFile.
 acrescentarArquivoSeguro :: FilePath -> String -> IO Bool
 acrescentarArquivoSeguro arquivo conteudo = do
-    -- putStrLn $ "Tentando acrescentar em: " ++ arquivo -- REMOVIDO DEBUG
     resultado <- catchIOError
         (do
             appendFile arquivo conteudo
             return True
         )
         (\e -> do
-            putStrLn $ "Erro ao acrescentar ao arquivo: " ++ arquivo ++ " - " ++ show e -- MANTIDO ERRO REAL
+            putStrLn $ "Erro ao acrescentar ao arquivo: " ++ arquivo ++ " - " ++ show e
             return False
         )
-    -- Bloco if/else de mensagens de sucesso/falha REMOVIDO
-    -- if resultado
-    --     then putStrLn $ "Dados acrescentados com sucesso em: " ++ arquivo
-    --     else putStrLn $ "Falha ao acrescentar dados em: " ++ arquivo
     return resultado
 
 -- | Escreve em um arquivo (sobrescrevendo) usando writeFile.
 escreverArquivoSeguro :: FilePath -> String -> IO Bool
 escreverArquivoSeguro arquivo conteudo = do
-    -- putStrLn $ "Tentando escrever em: " ++ arquivo -- REMOVIDO DEBUG
     resultado <- catchIOError
         (do
             writeFile arquivo conteudo
             return True
         )
         (\e -> do
-            putStrLn $ "Erro ao escrever arquivo: " ++ arquivo ++ " - " ++ show e -- MANTIDO ERRO REAL
+            putStrLn $ "Erro ao escrever arquivo: " ++ arquivo ++ " - " ++ show e
             return False
         )
-    -- Bloco if/else de mensagens de sucesso/falha REMOVIDO
-    -- if resultado
-    --     then putStrLn $ "Dados escritos com sucesso em: " ++ arquivo
-    --     else putStrLn $ "Falha ao escrever dados em: " ++ arquivo
     return resultado
 
 -- | Tenta converter uma linha do arquivo de ranking "Nome Pontos" em uma tupla (Nome, Pontos).
@@ -105,7 +89,7 @@ parseLinhaPontuacao linha = case words linha of
                             Nothing -> Nothing
     _ -> Nothing
 
--- | Tenta converter uma linha do arquivo de histórico "Nome Pontos (resultado - palavra: PALAVRA)" em uma `PontuacaoJogador`.
+-- | Tenta converter uma linha do arquivo de histórico.
 parseLinhaHistorico :: String -> Maybe PontuacaoJogador
 parseLinhaHistorico linha =
     let partes = words linha
@@ -157,21 +141,25 @@ lerRankingAcumulado = do
 registrarResultadoPartida :: String -> Jogo -> Bool -> IO Bool
 registrarResultadoPartida nomeJogador jogo ganhou = do
     garantirArquivoExiste arquivoHistoricoPartidas
-    let pontuacao = if ganhou then calcularPontuacao jogo else 0
+    let pontuacao = if ganhou then calcularPontuacao jogo else 0 -- pontuação do jogo atual (0 se perdeu)
     let resultado = if ganhou then "venceu" else "perdeu"
     let linha = nomeJogador ++ " " ++ show pontuacao ++ " (" ++ resultado ++ " - palavra: " ++ palavraSecreta jogo ++ ")\n"
-    -- putStrLn $ "Tentando salvar no histórico: " ++ linha -- REMOVIDO DEBUG
-    sucesso <- acrescentarArquivoSeguro arquivoHistoricoPartidas linha
-    if not sucesso
+    
+    sucessoHistorico <- acrescentarArquivoSeguro arquivoHistoricoPartidas linha
+    
+    if not sucessoHistorico
         then do
-            putStrLn "Erro: Não foi possível salvar no histórico de partidas." -- MANTIDO AVISO IMPORTANTE
+            putStrLn "Erro: Não foi possível salvar no histórico de partidas."
             return False
         else do
-            when (ganhou && pontuacao > 0) $ do
-                sucessoRanking <- atualizarRankingSimplesAcumulado nomeJogador pontuacao
-                unless sucessoRanking $
-                    putStrLn "Erro: Não foi possível atualizar o ranking acumulado." -- MANTIDO AVISO IMPORTANTE
-            return True
+            -- << ALTERADO: Tenta atualizar o ranking acumulado para TODOS os jogadores,
+            --    independentemente da pontuação ou se ganhou/perdeu.
+            --    A 'pontuacao' aqui é a do jogo atual (0 se perdeu).
+            --    'atualizarRankingSimplesAcumulado' irá somar essa pontuação ao total do jogador.
+            sucessoRanking <- atualizarRankingSimplesAcumulado nomeJogador pontuacao
+            unless sucessoRanking $
+                putStrLn "Erro: Não foi possível atualizar o ranking acumulado."
+            return True -- Retorna True se o histórico foi salvo, mesmo que o ranking acumulado falhe (para não impedir o fluxo principal)
 
 -- | Salva a pontuação de um jogador.
 salvarPontuacao :: String -> Jogo -> IO Bool
@@ -180,28 +168,28 @@ salvarPontuacao nomeJogador jogo
   | estadoJogo jogo == Perdeu = registrarResultadoPartida nomeJogador jogo False
   | otherwise = return True
 
--- | Atualiza o ranking acumulado (versão simplificada).
+-- | Atualiza o ranking acumulado.
 atualizarRankingSimplesAcumulado :: String -> Int -> IO Bool
 atualizarRankingSimplesAcumulado nomeJogador novaPontuacao = do
     garantirArquivoExiste arquivoRankingAcumulado
     ranking <- lerRankingAcumulado
     let rankingAtualizado = atualizarPontuacaoJogador nomeJogador novaPontuacao ranking
     let conteudo = unlines [nome ++ " " ++ show pontos | (nome, pontos) <- rankingAtualizado]
-    -- putStrLn $ "Tentando salvar ranking acumulado." -- REMOVIDO DEBUG
     resultado <- escreverArquivoSeguro arquivoRankingAcumulado conteudo
     return resultado
 
--- | Exibe o ranking dos melhores jogadores.
-exibirRankingMelhores :: Int -> IO ()
-exibirRankingMelhores topN = do
-    putStrLn "\n--- Ranking dos Melhores Jogadores ---"
+-- | Exibe o ranking geral de todos os jogadores.
+-- << RENOMEADA e ALTERADA: de exibirRankingMelhores para exibirRankingGeral
+exibirRankingGeral :: IO () -- << REMOVIDO parâmetro topN
+exibirRankingGeral = do
+    putStrLn "\n--- Ranking Geral de Jogadores ---" -- << ALTERADO Título
     rankingCompleto <- lerRankingAcumulado
     if null rankingCompleto
         then putStrLn "Nenhuma pontuação registrada ainda."
         else do
             let rankingOrdenado = sortBy (\(_, p1) (_, p2) -> compare p2 p1) rankingCompleto
-            let rankingTop = take topN rankingOrdenado
-            mapM_ imprimirEntradaRanking (zip [1..] rankingTop)
+            -- << REMOVIDO: let rankingTop = take topN rankingOrdenado
+            mapM_ imprimirEntradaRanking (zip [1..] rankingOrdenado) -- << ALTERADO: usa rankingOrdenado
     putStrLn "------------------------------------\n"
 
 -- | Exibe o histórico das partidas mais recentes.
@@ -228,8 +216,8 @@ imprimirEntradaRanking (posicao, (nome, pontos)) = do
     putStrLn $ show posicao ++ ". " ++ nome ++ " - " ++ show pontos ++ " pontos"
 
 -- | Funções obsoletas mantidas por compatibilidade
-exibirRankingAcumulado :: Int -> IO ()
-exibirRankingAcumulado = exibirRankingMelhores
+exibirRankingAcumulado :: IO () -- << ALTERADO: Assinatura e implementação
+exibirRankingAcumulado = exibirRankingGeral
 
 exibirRanking :: Int -> IO ()
 exibirRanking = exibirHistoricoPartidas

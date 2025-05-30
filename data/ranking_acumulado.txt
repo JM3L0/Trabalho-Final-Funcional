@@ -1,2 +1,3 @@
-joao 320
-pedro 180
+joao 135
+pedro 0
+d 90
