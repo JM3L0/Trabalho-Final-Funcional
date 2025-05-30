@@ -17,14 +17,13 @@ module Ranking (
 import System.IO
 import Tipos (Jogo, estadoJogo, EstadoJogo(Ganhou, Perdeu), palavraSecreta)
 import LogicaJogo (calcularPontuacao)
-import Utilitarios (trim) -- << ADICIONADO PARA USAR trim DE Utilitarios
+import Utilitarios (trim)
 import Data.List (sortBy)
 import Data.Maybe (mapMaybe)
--- System.IO já importado, mas garantindo que writeFile, appendFile, readFile estejam acessíveis
 import System.IO.Error (catchIOError)
 import Text.Read (readMaybe)
 import Control.Monad (when, unless)
--- Data.Char (isSpace) -- Não mais necessário se Utilitarios.trim for usado
+import Control.Exception (evaluate)
 
 -- | Representa a pontuação de um jogador como uma tupla (Nome, Pontos, Resultado, Palavra).
 type PontuacaoJogador = (String, Int, String, String)
@@ -38,16 +37,29 @@ arquivoRankingAcumulado :: FilePath
 arquivoRankingAcumulado = "data/ranking_acumulado.txt"
 
 -- | Função para garantir que o arquivo exista (simplificada).
--- Com a criação do diretório 'data' em Main.hs, e o uso de appendFile/writeFile,
--- a necessidade desta função é minimizada, servindo mais para log ou verificações futuras.
 garantirArquivoExiste :: FilePath -> IO ()
 garantirArquivoExiste _arquivo = do
-    -- putStrLn $ "Verificando/Preparando arquivo: " ++ arquivo
-    return () -- Operações de escrita/acréscimo cuidarão da criação do arquivo.
+    return ()
 
--- | Lê o conteúdo de um arquivo com tratamento simplificado de erros.
+-- | Lê o conteúdo de um arquivo com tratamento simplificado de erros e de forma estrita.
 lerArquivoSeguro :: FilePath -> IO String
-lerArquivoSeguro arquivo = catchIOError (readFile arquivo) (\_ -> return "")
+lerArquivoSeguro arquivo = catchIOError strictReadFileHandler handler
+  where
+    -- Ação para ler o arquivo estritamente
+    strictReadFileHandler :: IO String
+    strictReadFileHandler = do
+        conteudo <- readFile arquivo
+        -- Força a avaliação completa do conteúdo, garantindo que o manipulador
+        -- de arquivo de readFile seja fechado antes que esta ação termine.
+        _ <- evaluate (length conteudo)
+        return conteudo
+
+    -- Manipulador de erro para qualquer erro de IO durante a leitura
+    handler :: IOError -> IO String
+    handler _err = do
+        -- Opcionalmente, registre o erro se precisar depurar:
+        -- putStrLn $ "Aviso: Não foi possível ler " ++ arquivo ++ " devido a: " ++ show _err
+        return ""
 
 -- | Acrescenta ao final de um arquivo usando appendFile (mais seguro e simples).
 acrescentarArquivoSeguro :: FilePath -> String -> IO Bool
@@ -55,7 +67,7 @@ acrescentarArquivoSeguro arquivo conteudo = do
     putStrLn $ "Tentando acrescentar em: " ++ arquivo
     resultado <- catchIOError
         (do
-            appendFile arquivo conteudo -- << ALTERADO para appendFile
+            appendFile arquivo conteudo
             return True
         )
         (\e -> do
@@ -73,7 +85,7 @@ escreverArquivoSeguro arquivo conteudo = do
     putStrLn $ "Tentando escrever em: " ++ arquivo
     resultado <- catchIOError
         (do
-            writeFile arquivo conteudo -- << USA writeFile diretamente
+            writeFile arquivo conteudo
             return True
         )
         (\e -> do
@@ -100,23 +112,16 @@ parseLinhaHistorico linha =
     in case partes of
         (nome:pontosStr:resto) -> case readMaybe pontosStr :: Maybe Int of
             Just pontos -> do
-                let textoCompletoResto = unwords resto -- Ex: "(venceu - palavra: MORANGO)"
+                let textoCompletoResto = unwords resto
                 let resultado = if "(venceu" `isPrefixOf` textoCompletoResto then "venceu" else "perdeu"
-
-                -- Encontra a parte após "palavra:"
                 let strAposPalavraKeyword = snd $ breakSubstring "palavra:" textoCompletoResto
-                -- Remove o prefixo "palavra: " (note o espaço) se encontrado, senão usa string vazia.
                 let palavraComLixo = if null strAposPalavraKeyword then "" else drop (length "palavra: ") strAposPalavraKeyword
-
-                let palavraLimpa = trim $ filter (\c -> c /= ')' && c /= '(') palavraComLixo -- << trim aplicado
+                let palavraLimpa = trim $ filter (\c -> c /= ')' && c /= '(') palavraComLixo
                 Just (nome, pontos, resultado, palavraLimpa)
             Nothing -> Nothing
         _ -> Nothing
   where
     isPrefixOf prefix str = take (length prefix) str == prefix
-    -- breakSubstring: Encontra a primeira ocorrência de uma substring.
-    -- Retorna (parteAntesDaNeedle, needle ++ parteDepoisDaNeedle) se encontrar
-    -- ou (stringOriginal, []) se não encontrar.
     breakSubstring :: String -> String -> (String, String)
     breakSubstring needle haystack = go [] haystack
       where
@@ -124,7 +129,6 @@ parseLinhaHistorico linha =
         go acc src@(c:cs)
           | needle `isPrefixOf` src = (reverse acc, src)
           | otherwise               = go (c:acc) cs
-
 
 -- | Atualiza a pontuação de um jogador na lista de pontuações.
 atualizarPontuacaoJogador :: String -> Int -> [(String, Int)] -> [(String, Int)]
@@ -174,7 +178,7 @@ salvarPontuacao :: String -> Jogo -> IO Bool
 salvarPontuacao nomeJogador jogo
   | estadoJogo jogo == Ganhou = registrarResultadoPartida nomeJogador jogo True
   | estadoJogo jogo == Perdeu = registrarResultadoPartida nomeJogador jogo False
-  | otherwise = return True -- Não salva se o jogo ainda estiver 'Jogando'
+  | otherwise = return True
 
 -- | Atualiza o ranking acumulado (versão simplificada).
 atualizarRankingSimplesAcumulado :: String -> Int -> IO Bool

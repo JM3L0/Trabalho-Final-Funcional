@@ -15,12 +15,12 @@ import System.IO (hFlush, stdout) -- Para garantir que prompts sejam exibidos an
 import Data.Char (toUpper)        -- Para normalizar entrada do usuário
 import Data.List (nub, intersperse) -- Para remover letras duplicadas ao adivinhar palavra e formatar strings
 import Control.Monad (unless)     -- Para condicionais mais idiomáticas
-import System.Directory (createDirectoryIfMissing) -- << ADICIONADO PARA CRIAR DIRETÓRIO
+import System.Directory (createDirectoryIfMissing) -- Para criar diretório
 
 -- | Ponto de entrada principal do programa. Executa as ações de IO iniciais.
 main :: IO ()
 main = do
-  _ <- createDirectoryIfMissing True "data" -- << ADICIONADO: Garante que o diretório 'data' exista
+  _ <- createDirectoryIfMissing True "data" -- Garante que o diretório 'data' exista
   limparTela
   putStrLn "Bem-vindo ao Jogo da Forca em Haskell!"
   putStrLn "======================================\n"

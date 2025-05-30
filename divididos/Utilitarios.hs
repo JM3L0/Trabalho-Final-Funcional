@@ -8,13 +8,11 @@ module Utilitarios (
     -- * Funções de Terminal
     limparTela,         -- ^ Limpa a tela do console.
     -- * Funções de String
-    trim                -- << ADICIONADO À LISTA DE EXPORTAÇÃO
+    trim                -- ^ Remove espaços em branco no início e fim de uma string.
 ) where
 
 import System.IO (hFlush, stdout, readFile, writeFile)
--- Importa System.Random para uma melhor geração de números aleatórios.
 import System.Random (randomRIO)
--- Importações adicionais para tratamento de erros e manipulação de strings
 import System.IO.Error (catchIOError)
 import Data.Char (toUpper, isSpace)
 import Control.Monad (unless) -- Adicionado 'unless' que estava sendo usado
