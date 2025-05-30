@@ -51,7 +51,7 @@ pedirNomeJogador = do
 iniciarNovoJogo :: String -> IO ()
 iniciarNovoJogo nomeJogador = do
   limparTela
-  putStrLn $ "\nOlá, " ++ nomeJogador ++ "! Preparando um novo jogo... Boa sorte!\n"
+  putStrLn $ "\nOla, " ++ nomeJogador ++ "! Preparando um novo jogo... Boa sorte!\n"
   -- Seleciona uma palavra aleatória do banco (ação de IO)
   palavra <- selecionarPalavra
   -- Cria o estado inicial do jogo (registro `Jogo`)
@@ -96,27 +96,24 @@ loopJogo nomeJogador jogo = do
 -- | Processa a entrada do usuário (letra ou palavra completa).
 -- Valida a entrada e chama a função apropriada (`chutarLetra` ou `tentarPalavra`).
 -- Se a entrada for inválida, exibe uma mensagem e continua o loop com o mesmo estado.
---
--- Argumentos:
---   nomeJogador: O nome do jogador atual.
---   jogo: O estado atual do jogo.
---   entrada: A string digitada pelo usuário.
 processarEntrada :: String -> Jogo -> String -> IO ()
-processarEntrada nomeJogador jogo entrada
-  -- Caso 1: Entrada vazia
-  | null entrada = entradaInvalida "Entrada não pode ser vazia."
-  -- Caso 2: Entrada é uma única letra válida
-  | length entrada == 1 && letraValida (head entrada) =
-      -- Chama a função pura `chutarLetra` para obter o novo estado
-      let novoJogo = chutarLetra (head entrada) jogo
-      -- Continua o loop com o novo estado
-      in loopJogo nomeJogador novoJogo
-  -- Caso 3: Entrada tem mais de um caractere (tentativa de palavra)
-  -- Verifica se contém apenas letras válidas ou espaços
-  | length entrada > 1 && all (\c -> letraValida c || c == ' ') entrada =
-      tentarPalavra nomeJogador jogo (map toUpper entrada)
-  -- Caso 4: Qualquer outra entrada é inválida
-  | otherwise = entradaInvalida "Entrada inválida. Use apenas letras A-Z ou espaços."
+processarEntrada nomeJogador jogo entrada = case entrada of
+    [] -> -- Caso 1: Entrada vazia
+      entradaInvalida "Entrada não pode ser vazia."
+
+    [letraChutada] -> -- Caso 2: Entrada é uma única letra
+      if letraValida letraChutada then
+          let novoJogo = chutarLetra letraChutada jogo
+          in loopJogo nomeJogador novoJogo
+      else
+          entradaInvalida "Letra inválida. Use apenas A-Z."
+
+    -- Caso 3: Entrada tem mais de um caractere (tentativa de palavra)
+    multiCharString ->
+      if all (\c -> letraValida c || c == ' ') multiCharString then
+          tentarPalavra nomeJogador jogo (map toUpper multiCharString)
+      else
+          entradaInvalida "Tentativa de palavra inválida. Use apenas letras A-Z ou espaços."
   where
     -- Função local para tratar entradas inválidas
     entradaInvalida msg = do
@@ -124,6 +121,7 @@ processarEntrada nomeJogador jogo entrada
         putStrLn "Pressione Enter para continuar..."
         _ <- getLine -- Pausa para o usuário ler a mensagem
         loopJogo nomeJogador jogo -- Continua o loop com o mesmo estado de jogo
+
 
 -- | Processa a tentativa de adivinhar a palavra completa.
 -- Compara a palavra tentada com a palavra secreta (ignorando espaços e caixa).

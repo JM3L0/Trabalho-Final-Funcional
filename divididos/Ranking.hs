@@ -49,52 +49,52 @@ lerArquivoSeguro arquivo = catchIOError strictReadFileHandler handler
     strictReadFileHandler :: IO String
     strictReadFileHandler = do
         conteudo <- readFile arquivo
-        -- Força a avaliação completa do conteúdo, garantindo que o manipulador
-        -- de arquivo de readFile seja fechado antes que esta ação termine.
         _ <- evaluate (length conteudo)
         return conteudo
 
     -- Manipulador de erro para qualquer erro de IO durante a leitura
     handler :: IOError -> IO String
     handler _err = do
-        -- Opcionalmente, registre o erro se precisar depurar:
+        -- Se precisar depurar erros de leitura, descomente a linha abaixo:
         -- putStrLn $ "Aviso: Não foi possível ler " ++ arquivo ++ " devido a: " ++ show _err
         return ""
 
 -- | Acrescenta ao final de um arquivo usando appendFile (mais seguro e simples).
 acrescentarArquivoSeguro :: FilePath -> String -> IO Bool
 acrescentarArquivoSeguro arquivo conteudo = do
-    putStrLn $ "Tentando acrescentar em: " ++ arquivo
+    -- putStrLn $ "Tentando acrescentar em: " ++ arquivo -- REMOVIDO DEBUG
     resultado <- catchIOError
         (do
             appendFile arquivo conteudo
             return True
         )
         (\e -> do
-            putStrLn $ "Erro ao acrescentar ao arquivo: " ++ arquivo ++ " - " ++ show e
+            putStrLn $ "Erro ao acrescentar ao arquivo: " ++ arquivo ++ " - " ++ show e -- MANTIDO ERRO REAL
             return False
         )
-    if resultado
-        then putStrLn $ "Dados acrescentados com sucesso em: " ++ arquivo
-        else putStrLn $ "Falha ao acrescentar dados em: " ++ arquivo
+    -- Bloco if/else de mensagens de sucesso/falha REMOVIDO
+    -- if resultado
+    --     then putStrLn $ "Dados acrescentados com sucesso em: " ++ arquivo
+    --     else putStrLn $ "Falha ao acrescentar dados em: " ++ arquivo
     return resultado
 
 -- | Escreve em um arquivo (sobrescrevendo) usando writeFile.
 escreverArquivoSeguro :: FilePath -> String -> IO Bool
 escreverArquivoSeguro arquivo conteudo = do
-    putStrLn $ "Tentando escrever em: " ++ arquivo
+    -- putStrLn $ "Tentando escrever em: " ++ arquivo -- REMOVIDO DEBUG
     resultado <- catchIOError
         (do
             writeFile arquivo conteudo
             return True
         )
         (\e -> do
-            putStrLn $ "Erro ao escrever arquivo: " ++ arquivo ++ " - " ++ show e
+            putStrLn $ "Erro ao escrever arquivo: " ++ arquivo ++ " - " ++ show e -- MANTIDO ERRO REAL
             return False
         )
-    if resultado
-        then putStrLn $ "Dados escritos com sucesso em: " ++ arquivo
-        else putStrLn $ "Falha ao escrever dados em: " ++ arquivo
+    -- Bloco if/else de mensagens de sucesso/falha REMOVIDO
+    -- if resultado
+    --     then putStrLn $ "Dados escritos com sucesso em: " ++ arquivo
+    --     else putStrLn $ "Falha ao escrever dados em: " ++ arquivo
     return resultado
 
 -- | Tenta converter uma linha do arquivo de ranking "Nome Pontos" em uma tupla (Nome, Pontos).
@@ -160,17 +160,17 @@ registrarResultadoPartida nomeJogador jogo ganhou = do
     let pontuacao = if ganhou then calcularPontuacao jogo else 0
     let resultado = if ganhou then "venceu" else "perdeu"
     let linha = nomeJogador ++ " " ++ show pontuacao ++ " (" ++ resultado ++ " - palavra: " ++ palavraSecreta jogo ++ ")\n"
-    putStrLn $ "Tentando salvar no histórico: " ++ linha
+    -- putStrLn $ "Tentando salvar no histórico: " ++ linha -- REMOVIDO DEBUG
     sucesso <- acrescentarArquivoSeguro arquivoHistoricoPartidas linha
     if not sucesso
         then do
-            putStrLn "Erro: Não foi possível salvar no histórico de partidas."
+            putStrLn "Erro: Não foi possível salvar no histórico de partidas." -- MANTIDO AVISO IMPORTANTE
             return False
         else do
             when (ganhou && pontuacao > 0) $ do
                 sucessoRanking <- atualizarRankingSimplesAcumulado nomeJogador pontuacao
                 unless sucessoRanking $
-                    putStrLn "Erro: Não foi possível atualizar o ranking acumulado."
+                    putStrLn "Erro: Não foi possível atualizar o ranking acumulado." -- MANTIDO AVISO IMPORTANTE
             return True
 
 -- | Salva a pontuação de um jogador.
@@ -187,7 +187,7 @@ atualizarRankingSimplesAcumulado nomeJogador novaPontuacao = do
     ranking <- lerRankingAcumulado
     let rankingAtualizado = atualizarPontuacaoJogador nomeJogador novaPontuacao ranking
     let conteudo = unlines [nome ++ " " ++ show pontos | (nome, pontos) <- rankingAtualizado]
-    putStrLn $ "Tentando salvar ranking acumulado."
+    -- putStrLn $ "Tentando salvar ranking acumulado." -- REMOVIDO DEBUG
     resultado <- escreverArquivoSeguro arquivoRankingAcumulado conteudo
     return resultado
 
