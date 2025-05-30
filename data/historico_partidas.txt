@@ -1,1 +1,6 @@
 
+joao 90 (venceu - palavra: HASKELL)
+joao 90 (venceu - palavra: HASKELL)
+joao 90 (venceu - palavra: HASKELL)
+pedro 70 (venceu - palavra: HASKELL)
+pedro 0 (perdeu - palavra: HASKELL)

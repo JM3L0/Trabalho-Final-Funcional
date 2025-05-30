@@ -27,7 +27,7 @@ chutarLetra letra jogo
   -- Guarda (Guard): Se a letra (normalizada para maiúscula) já foi chutada, retorna o jogo sem modificação.
   | letraNormalizada `elem` letrasChutadas jogo = jogo
   -- Caso contrário, calcula o novo estado.
-  | otherwise = 
+  | otherwise =
       let -- Definições locais usando `let`:
           -- Adiciona a nova letra (normalizada) à lista de letras chutadas, removendo duplicatas com `nub`.
           novasLetrasChutadas = nub (letraNormalizada : letrasChutadas jogo)
@@ -94,7 +94,7 @@ removerEspacos = filter (/= ' ')
 calcularPontuacao :: Jogo -> Int
 calcularPontuacao jogo
   -- Guarda: Só calcula a pontuação se o estado for Ganhou.
-  | estadoJogo jogo == Ganhou = 
+  | estadoJogo jogo == Ganhou =
       let -- Pontuação base: 10 pontos por tentativa restante.
           pontuacaoBase = tentativasRestantes jogo * 10
           -- Bônus: 5 pontos por cada letra *única* correta chutada.
@@ -106,4 +106,3 @@ calcularPontuacao jogo
   | otherwise = 0
   where
     palavraSecretaNormalizada = map toUpper (palavraSecreta jogo)
-

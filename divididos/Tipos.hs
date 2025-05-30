@@ -37,18 +37,18 @@ class Exibivel a where
 
 -- | Instância de Exibivel para o tipo Jogo.
 instance Exibivel Jogo where
-    exibir jogo = 
-        let 
+    exibir jogo =
+        let
             -- Formata a palavra secreta substituindo letras não adivinhadas por '_'
-            palavraExibida = map (\c -> if c == ' ' || toUpper c `elem` map toUpper (letrasChutadas jogo) 
+            palavraExibida = map (\c -> if c == ' ' || toUpper c `elem` map toUpper (letrasChutadas jogo)
                                       then c
                                       else '_') (palavraSecreta jogo)
             -- Junta os caracteres com espaços para melhor visualização
             palavraFormatada = intersperse ' ' palavraExibida
-            
+
             -- Formata as letras chutadas
             letrasFormatadas = intersperse ' ' (letrasChutadas jogo)
-            
+
             -- Formata o boneco da forca
             boneco = desenharBoneco (maxErros - tentativasRestantes jogo)
         in

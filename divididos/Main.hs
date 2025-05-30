@@ -15,10 +15,12 @@ import System.IO (hFlush, stdout) -- Para garantir que prompts sejam exibidos an
 import Data.Char (toUpper)        -- Para normalizar entrada do usuário
 import Data.List (nub, intersperse) -- Para remover letras duplicadas ao adivinhar palavra e formatar strings
 import Control.Monad (unless)     -- Para condicionais mais idiomáticas
+import System.Directory (createDirectoryIfMissing) -- << ADICIONADO PARA CRIAR DIRETÓRIO
 
 -- | Ponto de entrada principal do programa. Executa as ações de IO iniciais.
 main :: IO ()
 main = do
+  _ <- createDirectoryIfMissing True "data" -- << ADICIONADO: Garante que o diretório 'data' exista
   limparTela
   putStrLn "Bem-vindo ao Jogo da Forca em Haskell!"
   putStrLn "======================================\n"
@@ -104,14 +106,14 @@ processarEntrada nomeJogador jogo entrada
   -- Caso 1: Entrada vazia
   | null entrada = entradaInvalida "Entrada não pode ser vazia."
   -- Caso 2: Entrada é uma única letra válida
-  | length entrada == 1 && letraValida (head entrada) = 
+  | length entrada == 1 && letraValida (head entrada) =
       -- Chama a função pura `chutarLetra` para obter o novo estado
       let novoJogo = chutarLetra (head entrada) jogo
       -- Continua o loop com o novo estado
       in loopJogo nomeJogador novoJogo
   -- Caso 3: Entrada tem mais de um caractere (tentativa de palavra)
   -- Verifica se contém apenas letras válidas ou espaços
-  | length entrada > 1 && all (\c -> letraValida c || c == ' ') entrada = 
+  | length entrada > 1 && all (\c -> letraValida c || c == ' ') entrada =
       tentarPalavra nomeJogador jogo (map toUpper entrada)
   -- Caso 4: Qualquer outra entrada é inválida
   | otherwise = entradaInvalida "Entrada inválida. Use apenas letras A-Z ou espaços."

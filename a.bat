@@ -4,7 +4,7 @@ echo Compilando o Jogo da Forca...
 cd divididos
 
 rem Compila o jogo usando o GHC
-ghc -o ..\jogo.exe Main.hs
+ghc -o ..\jogo.exe Main.hs -package directory  
 
 rem Verifica se a compilação foi bem-sucedida
 if %errorlevel% equ 0 (

@@ -6,16 +6,18 @@ module Utilitarios (
     selecionarPalavra,  -- ^ Seleciona uma palavra aleatória do arquivo.
     arquivoPalavras,    -- ^ Caminho do arquivo de palavras.
     -- * Funções de Terminal
-    limparTela          -- ^ Limpa a tela do console.
+    limparTela,         -- ^ Limpa a tela do console.
+    -- * Funções de String
+    trim                -- << ADICIONADO À LISTA DE EXPORTAÇÃO
 ) where
 
 import System.IO (hFlush, stdout, readFile, writeFile)
 -- Importa System.Random para uma melhor geração de números aleatórios.
 import System.Random (randomRIO)
 -- Importações adicionais para tratamento de erros e manipulação de strings
-import System.IO.Error (catchIOError, isDoesNotExistError)
+import System.IO.Error (catchIOError)
 import Data.Char (toUpper, isSpace)
-import Control.Exception (try)
+import Control.Monad (unless) -- Adicionado 'unless' que estava sendo usado
 
 -- | Caminho para o arquivo que contém as palavras do jogo.
 arquivoPalavras :: FilePath
@@ -36,7 +38,7 @@ inicializarArquivoPalavras :: IO ()
 inicializarArquivoPalavras = do
     -- Tenta encontrar o arquivo em um dos caminhos possíveis
     arquivoEncontrado <- encontrarArquivo caminhosPossiveis
-    
+
     case arquivoEncontrado of
         -- Se encontrou o arquivo, não precisa fazer nada
         Just caminho -> putStrLn $ "Usando arquivo de palavras: " ++ caminho
@@ -44,7 +46,7 @@ inicializarArquivoPalavras = do
         Nothing -> do
             putStrLn "Arquivo de palavras não encontrado, tentando criar..."
             criarArquivoPalavras
-            
+
 -- | Tenta encontrar o arquivo em uma lista de caminhos possíveis.
 encontrarArquivo :: [FilePath] -> IO (Maybe FilePath)
 encontrarArquivo [] = return Nothing
@@ -62,7 +64,7 @@ criarArquivoPalavras = do
     where
         tentarCriarArquivo [] = putStrLn "Não foi possível criar o arquivo de palavras em nenhum local."
         tentarCriarArquivo (caminho:restos) = do
-            resultado <- catchIOError 
+            resultado <- catchIOError
                 (do
                     writeFile caminho exemplosPalavras
                     putStrLn $ "Arquivo de palavras criado com sucesso em: " ++ caminho
@@ -71,11 +73,8 @@ criarArquivoPalavras = do
                     putStrLn $ "Erro ao criar " ++ caminho ++ ": " ++ show e
                     return False)
             unless resultado $ tentarCriarArquivo restos
-        
+
         exemplosPalavras = "HASKELL\nPROGRAMACAO\nFUNCIONAL\nCOMPUTACAO\nALGORITMO"
-        
-        unless :: Bool -> IO () -> IO ()
-        unless predicate action = if not predicate then action else return ()
 
 -- | Lê o banco de palavras do arquivo, com tratamento de erros.
 -- Se o arquivo não existir ou ocorrer outro erro, mostra um erro claro.
@@ -83,7 +82,7 @@ lerBancoPalavras :: IO [String]
 lerBancoPalavras = do
     -- Tenta encontrar o arquivo em um dos caminhos possíveis
     arquivoEncontrado <- encontrarArquivo caminhosPossiveis
-    
+
     case arquivoEncontrado of
         Just caminho -> catchIOError (lerPalavrasDoArquivo caminho) tratarErroLeitura
         Nothing -> do
@@ -96,7 +95,7 @@ lerBancoPalavras = do
       putStrLn $ "ERRO ao ler arquivo: " ++ show e
       putStrLn "Usando banco de palavras de emergência."
       return palavrasEmergencia
-    
+
     palavrasEmergencia = ["HASKELL", "COMPUTADOR", "PROGRAMA", "FUNCIONAL"]
 
 -- | Lê palavras de um arquivo específico
@@ -118,7 +117,7 @@ selecionarPalavra = do
   -- Inicializa e tenta ler o banco de palavras
   inicializarArquivoPalavras
   palavras <- lerBancoPalavras
-  
+
   -- Verifica se há palavras disponíveis
   if null palavras
     then do
