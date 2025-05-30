@@ -18,17 +18,16 @@ import Data.Char (toUpper, isSpace)
 import Control.Exception (try)
 
 -- | Caminho para o arquivo que contém as palavras do jogo.
--- Agora usa múltiplos caminhos possíveis para encontrar o arquivo.
 arquivoPalavras :: FilePath
-arquivoPalavras = "./data/palavras.txt"  -- Agora usa caminho relativo ao diretório de execução
+arquivoPalavras = "data/palavras.txt"
 
 -- | Lista de caminhos alternativos onde o arquivo pode estar.
 caminhosPossiveis :: [FilePath]
 caminhosPossiveis = [
-    "./data/palavras.txt",        -- Relativo ao diretório atual
-    "../data/palavras.txt",       -- Relativo ao diretório pai
-    "palavras.txt",               -- No próprio diretório
-    "./palavras.txt"              -- Alternativa explícita
+    "data/palavras.txt",          -- Principal
+    "palavras.txt",               -- Raiz do projeto
+    "../data/palavras.txt",       -- Diretório pai
+    "./palavras.txt"              -- Alternativa
   ]
 
 -- | Cria o arquivo de palavras se ele não existir.
@@ -58,13 +57,25 @@ encontrarArquivo (caminho:restos) = do
 -- | Tenta criar o arquivo de palavras em vários caminhos possíveis.
 criarArquivoPalavras :: IO ()
 criarArquivoPalavras = do
-    -- Tenta criar o diretório data
-    _ <- catchIOError (writeFile "data/palavras.txt" exemplosPalavras) (\_ -> return ())
-    -- Tenta criar no diretório atual
-    _ <- catchIOError (writeFile "palavras.txt" exemplosPalavras) (\_ -> return ())
-    return ()
+    -- Tenta criar diretamente nos caminhos possíveis, sem criar diretório antes
+    tentarCriarArquivo caminhosPossiveis
     where
+        tentarCriarArquivo [] = putStrLn "Não foi possível criar o arquivo de palavras em nenhum local."
+        tentarCriarArquivo (caminho:restos) = do
+            resultado <- catchIOError 
+                (do
+                    writeFile caminho exemplosPalavras
+                    putStrLn $ "Arquivo de palavras criado com sucesso em: " ++ caminho
+                    return True)
+                (\e -> do
+                    putStrLn $ "Erro ao criar " ++ caminho ++ ": " ++ show e
+                    return False)
+            unless resultado $ tentarCriarArquivo restos
+        
         exemplosPalavras = "HASKELL\nPROGRAMACAO\nFUNCIONAL\nCOMPUTACAO\nALGORITMO"
+        
+        unless :: Bool -> IO () -> IO ()
+        unless predicate action = if not predicate then action else return ()
 
 -- | Lê o banco de palavras do arquivo, com tratamento de erros.
 -- Se o arquivo não existir ou ocorrer outro erro, mostra um erro claro.
@@ -132,4 +143,3 @@ limparTela = do
   putStr "\ESC[2J"  -- Código ANSI para limpar a tela (Clear Screen).
   putStr "\ESC[H"   -- Código ANSI para mover o cursor para a posição Home (topo esquerdo).
   hFlush stdout    -- Garante que os comandos de limpeza sejam enviados imediatamente ao terminal.
-

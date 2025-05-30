@@ -13,7 +13,8 @@ import Ranking        -- Funções para lidar com o ranking (lerRanking, salvarP
 -- Importa módulos padrão do Haskell
 import System.IO (hFlush, stdout) -- Para garantir que prompts sejam exibidos antes da leitura
 import Data.Char (toUpper)        -- Para normalizar entrada do usuário
-import Data.List (nub)            -- Para remover letras duplicadas ao adivinhar palavra
+import Data.List (nub, intersperse) -- Para remover letras duplicadas ao adivinhar palavra e formatar strings
+import Control.Monad (unless)     -- Para condicionais mais idiomáticas
 
 -- | Ponto de entrada principal do programa. Executa as ações de IO iniciais.
 main :: IO ()
@@ -175,16 +176,22 @@ finalizarJogo nomeJogador jogo venceu = do
   putStrLn $ exibir jogo
 
   -- Salva a pontuação no arquivo de ranking, tanto para vitória quanto derrota
-  salvarPontuacao nomeJogador jogo
+  sucesso <- salvarPontuacao nomeJogador jogo
+  unless sucesso $
+      putStrLn "Aviso: Não foi possível salvar a pontuação."
 
   if venceu
     then do
       let pontuacao = calcularPontuacao jogo
       putStrLn $ "\nParabéns, " ++ nomeJogador ++ "! Você venceu!"
       putStrLn $ "Sua pontuação final: " ++ show pontuacao
+      -- Exibe a partida recém-jogada
+      putStrLn $ "\nPartida atual: " ++ nomeJogador ++ " marcou " ++ show pontuacao ++ " pontos (venceu - palavra: " ++ palavraSecreta jogo ++ ")"
     else do
       putStrLn $ "\nQue pena, " ++ nomeJogador ++ "! Você perdeu."
-      putStrLn $ "A palavra secreta era: " ++ palavraSecreta jogo
+      putStrLn $ "A palavra secreta era: " ++ intersperse ' ' (palavraSecreta jogo)
+      -- Exibe a partida recém-jogada
+      putStrLn $ "\nPartida atual: " ++ nomeJogador ++ " marcou 0 pontos (perdeu - palavra: " ++ palavraSecreta jogo ++ ")"
 
   -- Exibe o ranking dos melhores jogadores (baseado na pontuação acumulada)
   exibirRankingMelhores 5
@@ -209,4 +216,3 @@ jogarNovamente nomeJogador = do
     _   -> do
       putStrLn "Resposta inválida. Por favor, digite S para Sim ou N para Não."
       jogarNovamente nomeJogador -- Pede a resposta novamente
-
