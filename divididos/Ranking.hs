@@ -213,7 +213,8 @@ atualizarRankingSimplesAcumulado nomeJogador novaPontuacao = do
     let rankingAtualizado = atualizarPontuacaoJogador nomeJogador novaPontuacao ranking
     let conteudo = unlines [nome ++ " " ++ show pontos | (nome, pontos) <- rankingAtualizado]
     putStrLn $ "Tentando salvar ranking acumulado: " ++ conteudo
-    escreverArquivoSeguro arquivoRankingAcumulado conteudo
+    resultado <- escreverArquivoSeguro arquivoRankingAcumulado conteudo
+    return resultado
 
 -- | Exibe o ranking dos melhores jogadores
 exibirRankingMelhores :: Int -> IO ()
