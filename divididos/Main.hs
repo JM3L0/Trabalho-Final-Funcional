@@ -174,13 +174,14 @@ finalizarJogo nomeJogador jogo venceu = do
   putStrLn "\n--- Fim de Jogo ---"
   putStrLn $ exibir jogo
 
+  -- Salva a pontuação no arquivo de ranking, tanto para vitória quanto derrota
+  salvarPontuacao nomeJogador jogo
+
   if venceu
     then do
       let pontuacao = calcularPontuacao jogo
       putStrLn $ "\nParabéns, " ++ nomeJogador ++ "! Você venceu!"
       putStrLn $ "Sua pontuação final: " ++ show pontuacao
-      -- Salva a pontuação no arquivo de ranking (ação de IO do módulo Ranking)
-      salvarPontuacao nomeJogador jogo
     else do
       putStrLn $ "\nQue pena, " ++ nomeJogador ++ "! Você perdeu."
       putStrLn $ "A palavra secreta era: " ++ palavraSecreta jogo
