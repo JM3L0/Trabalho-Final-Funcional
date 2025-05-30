@@ -1,7 +1,7 @@
 @echo off
 echo Compilando o Jogo da Forca...
 
-cd divididos
+cd JogoDaForca
 
 rem Compila o jogo usando o GHC
 ghc -o ..\jogo.exe Main.hs -package directory  
