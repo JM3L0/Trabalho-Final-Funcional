@@ -24,7 +24,7 @@ if %errorlevel% equ 0 (
     echo Iniciando o jogo...
     echo ==============================
 
-    @REM timeout /t 1 >nul
+    timeout /t 1 >nul
     cls
     
     rem Executa o jogo
