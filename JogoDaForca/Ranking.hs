@@ -1,47 +1,38 @@
+-- Ranking.hs
 -- | Gerencia o sistema de pontuação e ranking do Jogo da Forca.
--- Este módulo lida com a persistência de dados (leitura e escrita em arquivo),
--- tratamento de erros de IO e manipulação de listas para ordenação.
 module Ranking (
-  -- * Tipos e Constantes
-  PontuacaoJogador,     -- ^ Alias de tipo para representar (Nome, Pontos, Resultado, Palavra).
-  arquivoHistoricoPartidas, -- ^ Caminho do arquivo de histórico de partidas.
-  arquivoRankingAcumulado, -- ^ Caminho do arquivo de ranking acumulado.
-  -- * Funções de IO
-  lerHistoricoPartidas,  -- ^ Lê o histórico de partidas do arquivo.
-  lerRankingAcumulado,  -- ^ Lê o ranking acumulado do arquivo.
-  salvarPontuacao,      -- ^ Salva a pontuação de um jogador nos arquivos.
-  exibirRankingGeral,   -- << ALTERADO: de exibirRankingMelhores para exibirRankingGeral
-  exibirHistoricoPartidas -- ^ Exibe o histórico das partidas recentes.
+  PontuacaoJogador,
+  arquivoHistoricoPartidas,
+  arquivoRankingAcumulado,
+  lerHistoricoPartidas,
+  lerRankingAcumulado,
+  salvarPontuacao,
+  exibirRankingGeral,
+  exibirHistoricoPartidas
 ) where
 
 import System.IO
 import Tipos (Jogo, estadoJogo, EstadoJogo(Ganhou, Perdeu), palavraSecreta)
 import LogicaJogo (calcularPontuacao)
-import Utilitarios (trim)
+import Utilitarios (trim) -- Certifique-se que Utilitarios exporta trim
 import Data.List (sortBy)
 import Data.Maybe (mapMaybe)
 import System.IO.Error (catchIOError)
 import Text.Read (readMaybe)
-import Control.Monad (unless) -- Removido 'when' pois a lógica mudou
+import Control.Monad (unless)
 import Control.Exception (evaluate)
 
--- | Representa a pontuação de um jogador como uma tupla (Nome, Pontos, Resultado, Palavra).
 type PontuacaoJogador = (String, Int, String, String)
 
--- | Caminho para o arquivo de histórico - na pasta data/
 arquivoHistoricoPartidas :: FilePath
 arquivoHistoricoPartidas = "data/historico_partidas.txt"
 
--- | Caminho para o arquivo de ranking acumulado - na pasta data/
 arquivoRankingAcumulado :: FilePath
 arquivoRankingAcumulado = "data/ranking_acumulado.txt"
 
--- | Função para garantir que o arquivo exista (simplificada).
 garantirArquivoExiste :: FilePath -> IO ()
-garantirArquivoExiste _arquivo = do
-    return ()
+garantirArquivoExiste _arquivo = return ()
 
--- | Lê o conteúdo de um arquivo com tratamento simplificado de erros e de forma estrita.
 lerArquivoSeguro :: FilePath -> IO String
 lerArquivoSeguro arquivo = catchIOError strictReadFileHandler handler
   where
@@ -51,60 +42,73 @@ lerArquivoSeguro arquivo = catchIOError strictReadFileHandler handler
         _ <- evaluate (length conteudo)
         return conteudo
     handler :: IOError -> IO String
-    handler _err = return ""
+    handler _err = do
+        -- Se precisar ver erros de leitura, descomente a linha abaixo:
+        -- putStrLn $ "[AVISO Ranking.hs] Não foi possível ler o arquivo '" ++ arquivo ++ "'. Erro: " ++ show _err
+        return ""
 
--- | Acrescenta ao final de um arquivo usando appendFile.
 acrescentarArquivoSeguro :: FilePath -> String -> IO Bool
 acrescentarArquivoSeguro arquivo conteudo = do
     resultado <- catchIOError
-        (do
-            appendFile arquivo conteudo
-            return True
-        )
-        (\e -> do
-            putStrLn $ "Erro ao acrescentar ao arquivo: " ++ arquivo ++ " - " ++ show e
-            return False
-        )
+        (appendFile arquivo conteudo >> return True)
+        (\e -> putStrLn ("Erro ao acrescentar ao arquivo: " ++ arquivo ++ " - " ++ show e) >> return False)
     return resultado
 
--- | Escreve em um arquivo (sobrescrevendo) usando writeFile.
 escreverArquivoSeguro :: FilePath -> String -> IO Bool
 escreverArquivoSeguro arquivo conteudo = do
     resultado <- catchIOError
-        (do
-            writeFile arquivo conteudo
-            return True
-        )
-        (\e -> do
-            putStrLn $ "Erro ao escrever arquivo: " ++ arquivo ++ " - " ++ show e
-            return False
-        )
+        (writeFile arquivo conteudo >> return True)
+        (\e -> putStrLn ("Erro ao escrever arquivo: " ++ arquivo ++ " - " ++ show e) >> return False)
     return resultado
 
--- | Tenta converter uma linha do arquivo de ranking "Nome Pontos" em uma tupla (Nome, Pontos).
+-- << FUNÇÃO MODIFICADA PARA LIDAR COM NOMES COM ESPAÇOS >>
 parseLinhaPontuacao :: String -> Maybe (String, Int)
-parseLinhaPontuacao linha = case words linha of
-    (nome:pontosStr:_) -> case readMaybe pontosStr :: Maybe Int of
-                            Just pontos -> Just (nome, pontos)
-                            Nothing -> Nothing
-    _ -> Nothing
+parseLinhaPontuacao linha =
+    let ws = words linha
+    in if null ws then Nothing else -- Linha vazia não produz nada
+        let pontosStr = last ws
+            nomeParts = init ws -- Todas as palavras exceto a última
+        in if null nomeParts then Nothing else -- Precisa ter um nome
+           case readMaybe pontosStr :: Maybe Int of
+                Just pontos -> Just (unwords nomeParts, pontos)
+                Nothing -> Nothing -- Última palavra não é um número
 
--- | Tenta converter uma linha do arquivo de histórico.
+-- << FUNÇÃO MODIFICADA PARA LIDAR COM NOMES COM ESPAÇOS >>
 parseLinhaHistorico :: String -> Maybe PontuacaoJogador
 parseLinhaHistorico linha =
-    let partes = words linha
-    in case partes of
-        (nome:pontosStr:resto) -> case readMaybe pontosStr :: Maybe Int of
-            Just pontos -> do
-                let textoCompletoResto = unwords resto
-                let resultado = if "(venceu" `isPrefixOf` textoCompletoResto then "venceu" else "perdeu"
-                let strAposPalavraKeyword = snd $ breakSubstring "palavra:" textoCompletoResto
-                let palavraComLixo = if null strAposPalavraKeyword then "" else drop (length "palavra: ") strAposPalavraKeyword
-                let palavraLimpa = trim $ filter (\c -> c /= ')' && c /= '(') palavraComLixo
-                Just (nome, pontos, resultado, palavraLimpa)
-            Nothing -> Nothing
-        _ -> Nothing
+    let ws = words linha
+    -- Esperamos pelo menos: Nome (1 palavra) + Pontos (1) + (Resultado (1) + - (1) + palavra: (1) + PALAVRA) (1)) = 6 palavras
+    in if length ws < 6 then Nothing else
+        let numWords = length ws
+            -- Pegando as partes fixas do final da string
+            palavraComParenteses = ws !! (numWords - 1)         -- Ex: "CONSTANTE)"
+            -- palavraKeyword = ws !! (numWords - 2)            -- Ex: "palavra:" (usado para validação abaixo)
+            -- dash = ws !! (numWords - 3)                      -- Ex: "-" (usado para validação abaixo)
+            -- resultadoComParentesesOriginal = ws !! (numWords - 4) -- Ex: "(venceu" (usado para validação abaixo)
+            pontosStr = ws !! (numWords - 5)                 -- Ex: "65"
+            nomeParts = take (numWords - 5) ws               -- Ex: ["pedro"] ou ["joao", "marcos"]
+
+            -- Reconstruindo a parte dos detalhes para usar a lógica de parsing existente
+            restoDetalhes = unwords (drop (numWords - 4) ws) -- Ex: "(venceu - palavra: CONSTANTE)"
+
+        in if null nomeParts || (ws !! (numWords - 2)) /= "palavra:" || (ws !! (numWords - 3)) /= "-"
+           then Nothing -- Estrutura básica do final não confere
+           else case readMaybe pontosStr :: Maybe Int of
+                Just pontos ->
+                    let nome = unwords nomeParts
+                        -- Parse 'resultado' e 'palavraLimpa' de 'restoDetalhes'
+                        resultado = if "(venceu" `isPrefixOf` restoDetalhes then "venceu" else "perdeu"
+                        strAposPalavraKeyword = snd $ breakSubstring "palavra:" restoDetalhes
+                        palavraComLixo = if null strAposPalavraKeyword then "" else drop (length "palavra: ") strAposPalavraKeyword
+                        palavraLimpa = trim $ filter (\c -> c /= ')' && c /= '(') palavraComLixo
+                    in if not (null palavraLimpa) && -- Garante que a palavra foi encontrada
+                         ((resultado == "venceu" && "(venceu" `isPrefixOf` restoDetalhes) || (resultado == "perdeu" && "(perdeu" `isPrefixOf` restoDetalhes))
+                        then Just (nome, pontos, resultado, palavraLimpa)
+                        else Nothing -- Parsing dos detalhes da string (resultado, palavra) falhou
+                Nothing -> Nothing -- String de pontos não era um Int
+
   where
+    -- Helpers locais (trim é importado de Utilitarios)
     isPrefixOf prefix str = take (length prefix) str == prefix
     breakSubstring :: String -> String -> (String, String)
     breakSubstring needle haystack = go [] haystack
@@ -114,14 +118,12 @@ parseLinhaHistorico linha =
           | needle `isPrefixOf` src = (reverse acc, src)
           | otherwise               = go (c:acc) cs
 
--- | Atualiza a pontuação de um jogador na lista de pontuações.
 atualizarPontuacaoJogador :: String -> Int -> [(String, Int)] -> [(String, Int)]
 atualizarPontuacaoJogador nome novaPontuacao [] = [(nome, novaPontuacao)]
 atualizarPontuacaoJogador nome novaPontuacao ((jogador, pontos):resto)
     | jogador == nome = (jogador, pontos + novaPontuacao) : resto
     | otherwise = (jogador, pontos) : atualizarPontuacaoJogador nome novaPontuacao resto
 
--- | Lê as pontuações do arquivo de histórico de partidas.
 lerHistoricoPartidas :: IO [PontuacaoJogador]
 lerHistoricoPartidas = do
     garantirArquivoExiste arquivoHistoricoPartidas
@@ -129,7 +131,6 @@ lerHistoricoPartidas = do
     let linhas = lines conteudo
     return (mapMaybe parseLinhaHistorico linhas)
 
--- | Lê as pontuações do arquivo de ranking acumulado.
 lerRankingAcumulado :: IO [(String, Int)]
 lerRankingAcumulado = do
     garantirArquivoExiste arquivoRankingAcumulado
@@ -137,38 +138,29 @@ lerRankingAcumulado = do
     let linhas = lines conteudo
     return (mapMaybe parseLinhaPontuacao linhas)
 
--- | Registra um resultado de partida (ganhou ou perdeu).
 registrarResultadoPartida :: String -> Jogo -> Bool -> IO Bool
 registrarResultadoPartida nomeJogador jogo ganhou = do
     garantirArquivoExiste arquivoHistoricoPartidas
-    let pontuacao = if ganhou then calcularPontuacao jogo else 0 -- pontuação do jogo atual (0 se perdeu)
+    let pontuacao = if ganhou then calcularPontuacao jogo else 0
     let resultado = if ganhou then "venceu" else "perdeu"
     let linha = nomeJogador ++ " " ++ show pontuacao ++ " (" ++ resultado ++ " - palavra: " ++ palavraSecreta jogo ++ ")\n"
-    
     sucessoHistorico <- acrescentarArquivoSeguro arquivoHistoricoPartidas linha
-    
     if not sucessoHistorico
         then do
             putStrLn "Erro: Não foi possível salvar no histórico de partidas."
             return False
         else do
-            -- << ALTERADO: Tenta atualizar o ranking acumulado para TODOS os jogadores,
-            --    independentemente da pontuação ou se ganhou/perdeu.
-            --    A 'pontuacao' aqui é a do jogo atual (0 se perdeu).
-            --    'atualizarRankingSimplesAcumulado' irá somar essa pontuação ao total do jogador.
             sucessoRanking <- atualizarRankingSimplesAcumulado nomeJogador pontuacao
             unless sucessoRanking $
                 putStrLn "Erro: Não foi possível atualizar o ranking acumulado."
-            return True -- Retorna True se o histórico foi salvo, mesmo que o ranking acumulado falhe (para não impedir o fluxo principal)
+            return True
 
--- | Salva a pontuação de um jogador.
 salvarPontuacao :: String -> Jogo -> IO Bool
 salvarPontuacao nomeJogador jogo
   | estadoJogo jogo == Ganhou = registrarResultadoPartida nomeJogador jogo True
   | estadoJogo jogo == Perdeu = registrarResultadoPartida nomeJogador jogo False
   | otherwise = return True
 
--- | Atualiza o ranking acumulado.
 atualizarRankingSimplesAcumulado :: String -> Int -> IO Bool
 atualizarRankingSimplesAcumulado nomeJogador novaPontuacao = do
     garantirArquivoExiste arquivoRankingAcumulado
@@ -178,21 +170,17 @@ atualizarRankingSimplesAcumulado nomeJogador novaPontuacao = do
     resultado <- escreverArquivoSeguro arquivoRankingAcumulado conteudo
     return resultado
 
--- | Exibe o ranking geral de todos os jogadores.
--- << RENOMEADA e ALTERADA: de exibirRankingMelhores para exibirRankingGeral
-exibirRankingGeral :: IO () -- << REMOVIDO parâmetro topN
+exibirRankingGeral :: IO ()
 exibirRankingGeral = do
-    putStrLn "\n--- Ranking Geral de Jogadores ---" -- << ALTERADO Título
+    putStrLn "\n--- Ranking Geral de Jogadores ---"
     rankingCompleto <- lerRankingAcumulado
     if null rankingCompleto
         then putStrLn "Nenhuma pontuação registrada ainda."
         else do
             let rankingOrdenado = sortBy (\(_, p1) (_, p2) -> compare p2 p1) rankingCompleto
-            -- << REMOVIDO: let rankingTop = take topN rankingOrdenado
-            mapM_ imprimirEntradaRanking (zip [1..] rankingOrdenado) -- << ALTERADO: usa rankingOrdenado
+            mapM_ imprimirEntradaRanking (zip [1..] rankingOrdenado)
     putStrLn "------------------------------------\n"
 
--- | Exibe o histórico das partidas mais recentes.
 exibirHistoricoPartidas :: Int -> IO ()
 exibirHistoricoPartidas numPartidas = do
     putStrLn "\n--- Histórico de Partidas Recentes ---"
@@ -205,24 +193,20 @@ exibirHistoricoPartidas numPartidas = do
             mapM_ imprimirHistoricoPartida (zip [1..] historicoRecente)
     putStrLn "------------------------------------\n"
 
--- | Imprime uma entrada do histórico de partidas.
 imprimirHistoricoPartida :: (Int, PontuacaoJogador) -> IO ()
-imprimirHistoricoPartida (numero, (nome, pontos, resultado, palavra)) = do
+imprimirHistoricoPartida (numero, (nome, pontos, resultado, palavra)) =
     putStrLn $ show numero ++ ". " ++ nome ++ " marcou " ++ show pontos ++ " pontos (" ++ resultado ++ " - palavra: " ++ palavra ++ ")"
 
--- | Imprime uma entrada formatada do ranking.
 imprimirEntradaRanking :: (Int, (String, Int)) -> IO ()
-imprimirEntradaRanking (posicao, (nome, pontos)) = do
+imprimirEntradaRanking (posicao, (nome, pontos)) =
     putStrLn $ show posicao ++ ". " ++ nome ++ " - " ++ show pontos ++ " pontos"
 
--- | Funções obsoletas mantidas por compatibilidade
-exibirRankingAcumulado :: IO () -- << ALTERADO: Assinatura e implementação
+exibirRankingAcumulado :: IO ()
 exibirRankingAcumulado = exibirRankingGeral
 
 exibirRanking :: Int -> IO ()
 exibirRanking = exibirHistoricoPartidas
 
--- Corrigido para converter o tipo PontuacaoJogador para (String, Int)
 lerRanking :: IO [(String, Int)]
 lerRanking = do
     historico <- lerHistoricoPartidas

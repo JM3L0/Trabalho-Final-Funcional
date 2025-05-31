@@ -1,5 +1,0 @@
-joao 0 (perdeu - palavra: TIPO)
-pedro 0 (perdeu - palavra: CURRY)
-d 90 (venceu - palavra: BIBLIOTECA)
-joao 80 (venceu - palavra: FUNCIONAL)
-joao 55 (venceu - palavra: METODO)

@@ -12,7 +12,7 @@ if %errorlevel% equ 0 (
     echo Executavel criado: jogo.exe
     
     rem Remove os arquivos intermediários
-    echo Limpando arquivos intermediários...
+    echo Limpando arquivos intermediarios...
     del *.o
     del *.hi
     
@@ -23,6 +23,9 @@ if %errorlevel% equ 0 (
     echo.
     echo Iniciando o jogo...
     echo ==============================
+
+    @REM timeout /t 1 >nul
+    cls
     
     rem Executa o jogo
     jogo.exe
