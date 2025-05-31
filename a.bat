@@ -21,10 +21,11 @@ if %errorlevel% equ 0 (
     cd ..
     
     echo.
+    cls
     echo Iniciando o jogo...
     echo ==============================
 
-    timeout /t 1 >nul
+    timeout /t 2 >nul
     cls
     
     rem Executa o jogo

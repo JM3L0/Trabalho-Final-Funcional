@@ -12,9 +12,10 @@ module Ranking (
 ) where
 
 import System.IO
-import Tipos (Jogo, estadoJogo, EstadoJogo(Ganhou, Perdeu), palavraSecreta)
+import Tipos ( Jogo, EstadoJogo(Ganhou, Perdeu), -- Importa Jogo (abstrato)
+               palavraSecretaJogo, estadoJogoJogo ) -- Getters
 import LogicaJogo (calcularPontuacao)
-import Utilitarios (trim) -- Certifique-se que Utilitarios exporta trim
+import Utilitarios (trim)
 import Data.List (sortBy)
 import Data.Maybe (mapMaybe)
 import System.IO.Error (catchIOError)
@@ -43,7 +44,6 @@ lerArquivoSeguro arquivo = catchIOError strictReadFileHandler handler
         return conteudo
     handler :: IOError -> IO String
     handler _err = do
-        -- Se precisar ver erros de leitura, descomente a linha abaixo:
         -- putStrLn $ "[AVISO Ranking.hs] Não foi possível ler o arquivo '" ++ arquivo ++ "'. Erro: " ++ show _err
         return ""
 
@@ -61,54 +61,41 @@ escreverArquivoSeguro arquivo conteudo = do
         (\e -> putStrLn ("Erro ao escrever arquivo: " ++ arquivo ++ " - " ++ show e) >> return False)
     return resultado
 
--- << FUNÇÃO MODIFICADA PARA LIDAR COM NOMES COM ESPAÇOS >>
 parseLinhaPontuacao :: String -> Maybe (String, Int)
 parseLinhaPontuacao linha =
     let ws = words linha
-    in if null ws then Nothing else -- Linha vazia não produz nada
+    in if null ws then Nothing else
         let pontosStr = last ws
-            nomeParts = init ws -- Todas as palavras exceto a última
-        in if null nomeParts then Nothing else -- Precisa ter um nome
+            nomeParts = init ws
+        in if null nomeParts then Nothing else
            case readMaybe pontosStr :: Maybe Int of
                 Just pontos -> Just (unwords nomeParts, pontos)
-                Nothing -> Nothing -- Última palavra não é um número
+                Nothing -> Nothing
 
--- << FUNÇÃO MODIFICADA PARA LIDAR COM NOMES COM ESPAÇOS >>
 parseLinhaHistorico :: String -> Maybe PontuacaoJogador
 parseLinhaHistorico linha =
     let ws = words linha
-    -- Esperamos pelo menos: Nome (1 palavra) + Pontos (1) + (Resultado (1) + - (1) + palavra: (1) + PALAVRA) (1)) = 6 palavras
     in if length ws < 6 then Nothing else
         let numWords = length ws
-            -- Pegando as partes fixas do final da string
-            palavraComParenteses = ws !! (numWords - 1)         -- Ex: "CONSTANTE)"
-            -- palavraKeyword = ws !! (numWords - 2)            -- Ex: "palavra:" (usado para validação abaixo)
-            -- dash = ws !! (numWords - 3)                      -- Ex: "-" (usado para validação abaixo)
-            -- resultadoComParentesesOriginal = ws !! (numWords - 4) -- Ex: "(venceu" (usado para validação abaixo)
-            pontosStr = ws !! (numWords - 5)                 -- Ex: "65"
-            nomeParts = take (numWords - 5) ws               -- Ex: ["pedro"] ou ["joao", "marcos"]
-
-            -- Reconstruindo a parte dos detalhes para usar a lógica de parsing existente
-            restoDetalhes = unwords (drop (numWords - 4) ws) -- Ex: "(venceu - palavra: CONSTANTE)"
-
+            palavraComParenteses = ws !! (numWords - 1)
+            pontosStr = ws !! (numWords - 5)
+            nomeParts = take (numWords - 5) ws
+            restoDetalhes = unwords (drop (numWords - 4) ws)
         in if null nomeParts || (ws !! (numWords - 2)) /= "palavra:" || (ws !! (numWords - 3)) /= "-"
-           then Nothing -- Estrutura básica do final não confere
+           then Nothing
            else case readMaybe pontosStr :: Maybe Int of
                 Just pontos ->
                     let nome = unwords nomeParts
-                        -- Parse 'resultado' e 'palavraLimpa' de 'restoDetalhes'
                         resultado = if "(venceu" `isPrefixOf` restoDetalhes then "venceu" else "perdeu"
                         strAposPalavraKeyword = snd $ breakSubstring "palavra:" restoDetalhes
                         palavraComLixo = if null strAposPalavraKeyword then "" else drop (length "palavra: ") strAposPalavraKeyword
                         palavraLimpa = trim $ filter (\c -> c /= ')' && c /= '(') palavraComLixo
-                    in if not (null palavraLimpa) && -- Garante que a palavra foi encontrada
+                    in if not (null palavraLimpa) &&
                          ((resultado == "venceu" && "(venceu" `isPrefixOf` restoDetalhes) || (resultado == "perdeu" && "(perdeu" `isPrefixOf` restoDetalhes))
                         then Just (nome, pontos, resultado, palavraLimpa)
-                        else Nothing -- Parsing dos detalhes da string (resultado, palavra) falhou
-                Nothing -> Nothing -- String de pontos não era um Int
-
+                        else Nothing
+                Nothing -> Nothing
   where
-    -- Helpers locais (trim é importado de Utilitarios)
     isPrefixOf prefix str = take (length prefix) str == prefix
     breakSubstring :: String -> String -> (String, String)
     breakSubstring needle haystack = go [] haystack
@@ -143,8 +130,10 @@ registrarResultadoPartida nomeJogador jogo ganhou = do
     garantirArquivoExiste arquivoHistoricoPartidas
     let pontuacao = if ganhou then calcularPontuacao jogo else 0
     let resultado = if ganhou then "venceu" else "perdeu"
-    let linha = nomeJogador ++ " " ++ show pontuacao ++ " (" ++ resultado ++ " - palavra: " ++ palavraSecreta jogo ++ ")\n"
+    let linha = nomeJogador ++ " " ++ show pontuacao ++ " (" ++ resultado ++ " - palavra: " ++ palavraSecretaJogo jogo ++ ")\n"
+    
     sucessoHistorico <- acrescentarArquivoSeguro arquivoHistoricoPartidas linha
+    
     if not sucessoHistorico
         then do
             putStrLn "Erro: Não foi possível salvar no histórico de partidas."
@@ -157,8 +146,8 @@ registrarResultadoPartida nomeJogador jogo ganhou = do
 
 salvarPontuacao :: String -> Jogo -> IO Bool
 salvarPontuacao nomeJogador jogo
-  | estadoJogo jogo == Ganhou = registrarResultadoPartida nomeJogador jogo True
-  | estadoJogo jogo == Perdeu = registrarResultadoPartida nomeJogador jogo False
+  | estadoJogoJogo jogo == Ganhou = registrarResultadoPartida nomeJogador jogo True
+  | estadoJogoJogo jogo == Perdeu = registrarResultadoPartida nomeJogador jogo False
   | otherwise = return True
 
 atualizarRankingSimplesAcumulado :: String -> Int -> IO Bool
