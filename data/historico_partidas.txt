@@ -1,0 +1,6 @@
+iago 95 (venceu - palavra: UNIVERSIDADE)
+iago 45 (venceu - palavra: JULIO)
+iago 75 (venceu - palavra: FUNCOES)
+francinaldo 0 (perdeu - palavra: SEMANTICA)
+francinaldo 80 (venceu - palavra: FEDERAL)
+francinaldo 0 (perdeu - palavra: MONADA)
