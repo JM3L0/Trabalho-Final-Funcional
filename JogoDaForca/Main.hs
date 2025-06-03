@@ -213,7 +213,7 @@ finalizarJogo nomeJogador jogo venceu = do
       putStrLn $ "\nPartida atual: " ++ nomeJogador ++ " marcou 0 pontos (perdeu - palavra: " ++ palavraSecretaJogo jogo ++ ")"
 
   -- Exibe o ranking geral e o histórico de partidas recentes
-  exibirRankingGeral            -- Mostra o ranking de todos os jogadores
+  exibirRankingGeral            -- Mostra o ranking de todos os jogadores 
   exibirHistoricoPartidas 5     -- Mostra as 5 partidas mais recentes
   
   -- Pergunta se quer jogar novamente
